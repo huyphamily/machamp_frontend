@@ -1,7 +1,9 @@
 {
     "dependencies": {
         "@airtable/blocks": "1.7.2",
+        "chart.js": "^3.4.1",
         "react": "^16.13.0",
+        "react-chartjs-2": "^3.0.3",
         "react-dom": "^16.13.0"
     },
     "devDependencies": {
