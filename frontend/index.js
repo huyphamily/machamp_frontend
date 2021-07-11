@@ -1,7 +1,8 @@
-import { initializeBlock, useBase, useRecords } from '@airtable/blocks/ui';
+import { initializeBlock, useBase, useRecords, useRecordById } from '@airtable/blocks/ui';
 import React, { useState }  from 'react';
-import { Box, Button, FormField, Input } from "@airtable/blocks/ui";
+import { Box, Button, FormField, Heading, Input } from "@airtable/blocks/ui";
 import LineChart from "./LineChart";
+import TradingViewWidget from 'react-tradingview-widget';
 
 async function queryTicker({
     ticker,
@@ -23,6 +24,7 @@ async function queryTicker({
         const companies = await fetch(`https://financialmodelingprep.com/api/v3/profile/${upperCaseTicker}?apikey=7d86e4fdf1d1e51adcbfad58c7e45d15`)
             .then(response => response.json());
         const companyName = companies.length && companies[0].companyName;
+        const exchange = companies.length && companies[0].exchangeShortName;
         
         if (!companyName) {
             throw('Stock Symbol does not exists');
@@ -31,6 +33,7 @@ async function queryTicker({
         tickerRecordId = await stockTable.createRecordAsync({
             Symbol: upperCaseTicker,
             Name: companyName,
+            Exchange: exchange,
         });
     }
 
@@ -38,6 +41,42 @@ async function queryTicker({
         'Stock': [{id: tickerRecordId}],
     });
     setStockRecordId(tickerRecordId);
+}
+
+function ChartSection({ data, stockRecordId, stockTable }) {
+    const stockRecord = useRecordById(stockTable, stockRecordId);
+    const ticker = stockRecord.getCellValue('Symbol');
+    const exchange = stockRecord.getCellValue('Exchange');
+
+    return <Box padding={2}>
+        <LineChart title="Score" data={data} options={{
+            parsing: {
+                xAxisKey: 'Date',
+                yAxisKey: 'Score'
+            }
+        }} />
+        <LineChart title="Ebita Ratio" data={data} options={{
+            parsing: {
+                xAxisKey: 'Date',
+                yAxisKey: 'EbitaRatio'
+            }
+        }} />
+        <LineChart title="Annual Growth" data={data} options={{
+            parsing: {
+                xAxisKey: 'Date',
+                yAxisKey: 'AnnualGrowth'
+            }
+        }} />
+        <Box marginTop={2} padding={2}>
+            <Heading>Price</Heading>
+            <Box height='400px' width='80%' margin='auto' >
+                <TradingViewWidget
+                    symbol={`${exchange}:${ticker}`}
+                    autosize
+                />
+            </Box>
+        </Box>
+    </Box>;
 }
 
 function MachampApp() {
@@ -98,26 +137,13 @@ function MachampApp() {
             </FormField>
             <Button type="submit">Search</Button>
         </form>
-        {stockRecordId ? <Box padding={2}>
-            <LineChart title="Score" data={data} options={{
-                parsing: {
-                    xAxisKey: 'Date',
-                    yAxisKey: 'Score'
-                }
-            }} />
-            <LineChart title="Ebita Ratio" data={data} options={{
-                parsing: {
-                    xAxisKey: 'Date',
-                    yAxisKey: 'EbitaRatio'
-                }
-            }} />
-            <LineChart title="Annual Growth" data={data} options={{
-                parsing: {
-                    xAxisKey: 'Date',
-                    yAxisKey: 'AnnualGrowth'
-                }
-            }} />
-        </Box> : ''}
+        {stockRecordId ?
+            <ChartSection
+                data={data}
+                stockRecordId={stockRecordId}
+                stockTable={stockTable}
+            /> : ''
+        }
     </Box>;
 }
 
