@@ -75,7 +75,8 @@ function MachampApp() {
                 Score: record.getCellValue('Score'),
                 EbitaRatio: record.getCellValue('EbitaRatio'),
                 AnnualGrowth: record.getCellValue('AnnualGrowth'),
-            }));
+            }))
+            .reverse();
         data = {
             datasets: [{
                 label: ticker.toUpperCase(),
@@ -84,7 +85,6 @@ function MachampApp() {
                 borderColor: 'rgb(255, 99, 132)',
             }],
         }
-        console.log('huy1', data);
     }
 
     return <Box padding={2}>
