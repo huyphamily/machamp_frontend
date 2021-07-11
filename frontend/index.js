@@ -76,7 +76,7 @@ function MachampApp() {
                 EbitaRatio: record.getCellValue('EbitaRatio'),
                 AnnualGrowth: record.getCellValue('AnnualGrowth'),
             }))
-            .reverse();
+            .sort((a, b) => new Date(a.Date) - new Date(b.Date));
         data = {
             datasets: [{
                 label: ticker.toUpperCase(),
@@ -88,17 +88,17 @@ function MachampApp() {
     }
 
     return <Box padding={2}>
-        <form onSubmit={e => onSubmit(e)}>
+        <form onSubmit={onSubmit}>
             <FormField label="Symbol">
                 <Input
                     value={ticker}
-                    onChange={e => onChange(e)}
+                    onChange={onChange}
                     placeholder="AAPL"
                 />
             </FormField>
             <Button type="submit">Search</Button>
         </form>
-        {stockRecordId ? <div>
+        {stockRecordId ? <Box padding={2}>
             <LineChart title="Score" data={data} options={{
                 parsing: {
                     xAxisKey: 'Date',
@@ -117,7 +117,7 @@ function MachampApp() {
                     yAxisKey: 'AnnualGrowth'
                 }
             }} />
-        </div> : ''}
+        </Box> : ''}
     </Box>;
 }
 
