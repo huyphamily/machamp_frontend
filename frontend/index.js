@@ -20,33 +20,72 @@ async function queryTicker({
     });
     let tickerRecordId = tickerRecord && tickerRecord.id;
 
-    if (!tickerRecordId) {
+    if (!tickerRecord) {
         const companies = await fetch(`https://financialmodelingprep.com/api/v3/profile/${upperCaseTicker}?apikey=7d86e4fdf1d1e51adcbfad58c7e45d15`)
             .then(response => response.json());
-        const companyName = companies.length && companies[0].companyName;
-        const exchange = companies.length && companies[0].exchangeShortName;
+        const company = companies.length && companies[0];
         
-        if (!companyName) {
+        if (!company) {
             throw('Stock Symbol does not exists');
         }
 
         tickerRecordId = await stockTable.createRecordAsync({
             Symbol: upperCaseTicker,
-            Name: companyName,
-            Exchange: exchange,
+            Name: company.companyName,
+            Exchange: company.exchangeShortName,
+            Country: company.country,
+            MarketCap: company.mktCap,
         });
+        queueTable.createRecordAsync({
+            'Stock': [{id: tickerRecordId}],
+        });
+    } else {
+        const rule40Query = tickerRecord.selectLinkedRecordsFromCell('Rule40');
+        await rule40Query.loadDataAsync();
+        const latestRule40 = rule40Query.records.slice().sort((a, b) => new Date(b.Date) - new Date(a.Date))[0];
+        if (latestRule40) {
+            const currentDate = new Date();
+            const twoMonthOut = new Date(latestRule40.getCellValue('Date'));
+            twoMonthOut.setMonth(twoMonthOut.getMonth() + 2);
+            twoMonthOut.setDate(twoMonthOut.getDate() + 15);
+
+            if ((currentDate > twoMonthOut)) {
+                queueTable.createRecordAsync({
+                    'Stock': [{id: tickerRecordId}],
+                });
+            }
+        }
+
+        rule40Query.unloadData();
     }
 
-    queueTable.createRecordAsync({
-        'Stock': [{id: tickerRecordId}],
-    });
+    queryResult.unloadData();
     setStockRecordId(tickerRecordId);
 }
 
-function ChartSection({ data, stockRecordId, stockTable }) {
+function ChartSection({ stockRecordId, stockTable }) {
     const stockRecord = useRecordById(stockTable, stockRecordId);
     const ticker = stockRecord.getCellValue('Symbol');
     const exchange = stockRecord.getCellValue('Exchange');
+
+    const rule40Query = stockRecord.selectLinkedRecordsFromCell('Rule40');
+    const rule40Records = useRecords(rule40Query);
+    const tickerData = rule40Records.map(record => ({
+            Date: record.getCellValue('Date'),
+            Score: record.getCellValue('Score'),
+            EbitaRatio: record.getCellValue('EbitaRatio'),
+            AnnualGrowth: record.getCellValue('AnnualGrowth'),
+        }))
+        .sort((a, b) => new Date(a.Date) - new Date(b.Date));
+
+    const data = {
+        datasets: [{
+            label: ticker.toUpperCase(),
+            data: tickerData,
+            backgroundColor: 'rgb(255, 99, 132)',
+            borderColor: 'rgb(255, 99, 132)',
+        }],
+    }
 
     return <Box padding={2}>
         <LineChart title="Score" data={data} options={{
@@ -83,11 +122,8 @@ function MachampApp() {
     const base = useBase();
     const stockTable = base.getTable('Stock');
     const queueTable = base.getTable('R40Queue');
-    const rule40Table = base.getTable('Rule40');
     const [ticker, setTicker] = useState('');
     const [stockRecordId, setStockRecordId] = useState(null);
-    let rule40Records = useRecords(rule40Table);
-    let data;
 
     const onSubmit = async (event) => {
         event.preventDefault();
@@ -106,26 +142,6 @@ function MachampApp() {
         setStockRecordId(null);
     }
 
-    if (stockRecordId) {
-        const tickerData = rule40Records
-            .filter(record => record.getCellValue('Stock')[0].id === stockRecordId)
-            .map(record => ({
-                Date: record.getCellValue('Date'),
-                Score: record.getCellValue('Score'),
-                EbitaRatio: record.getCellValue('EbitaRatio'),
-                AnnualGrowth: record.getCellValue('AnnualGrowth'),
-            }))
-            .sort((a, b) => new Date(a.Date) - new Date(b.Date));
-        data = {
-            datasets: [{
-                label: ticker.toUpperCase(),
-                data: tickerData,
-                backgroundColor: 'rgb(255, 99, 132)',
-                borderColor: 'rgb(255, 99, 132)',
-            }],
-        }
-    }
-
     return <Box padding={2}>
         <form onSubmit={onSubmit}>
             <FormField label="Symbol">
@@ -139,7 +155,7 @@ function MachampApp() {
         </form>
         {stockRecordId ?
             <ChartSection
-                data={data}
+                base={base}
                 stockRecordId={stockRecordId}
                 stockTable={stockTable}
             /> : ''
