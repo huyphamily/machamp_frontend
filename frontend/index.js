@@ -54,6 +54,10 @@ async function queryTicker({
                     'Stock': [{id: tickerRecordId}],
                 });
             }
+        } else {
+            queueTable.createRecordAsync({
+                'Stock': [{id: tickerRecordId}],
+            });
         }
 
         rule40Query.unloadData();
@@ -77,35 +81,15 @@ function ChartSection({ stockRecordId, stockTable }) {
             AnnualGrowth: record.getCellValue('AnnualGrowth'),
         }))
         .sort((a, b) => new Date(a.Date) - new Date(b.Date));
-
-    const data = {
-        datasets: [{
-            label: ticker.toUpperCase(),
-            data: tickerData,
-            backgroundColor: 'rgb(255, 99, 132)',
-            borderColor: 'rgb(255, 99, 132)',
-        }],
-    }
+    const labels = tickerData.map(data => data.Date);
+    const scores = tickerData.map(data => data.Score);
+    const ebitaRatios = tickerData.map(data => data.EbitaRatio);
+    const annualGrowth = tickerData.map(data => data.AnnualGrowth);
 
     return <Box padding={2}>
-        <LineChart title="Score" data={data} options={{
-            parsing: {
-                xAxisKey: 'Date',
-                yAxisKey: 'Score'
-            }
-        }} />
-        <LineChart title="Ebita Ratio" data={data} options={{
-            parsing: {
-                xAxisKey: 'Date',
-                yAxisKey: 'EbitaRatio'
-            }
-        }} />
-        <LineChart title="Annual Growth" data={data} options={{
-            parsing: {
-                xAxisKey: 'Date',
-                yAxisKey: 'AnnualGrowth'
-            }
-        }} />
+        <LineChart title="Score" dataArray={scores} labels={labels} label={ticker.toUpperCase()} />
+        <LineChart title="Ebita Ratio" dataArray={ebitaRatios} labels={labels} label={ticker.toUpperCase()} />
+        <LineChart title="Annual Growth" dataArray={annualGrowth} labels={labels} label={ticker.toUpperCase()} />
         <Box marginTop={2} padding={2}>
             <Heading>Price</Heading>
             <Box height='400px' width='80%' margin='auto' >
